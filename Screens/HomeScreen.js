@@ -2,6 +2,7 @@ import React from 'react';
 import { AppRegistry, StyleSheet, View, TextInput, Modal, Image } from 'react-native';
 import Toast, { DURATION } from 'react-native-easy-toast';
 import { FormLabel, FormInput, Button, Text, List, ListItem, Icon } from 'react-native-elements';
+import { Location, Permissions } from 'expo';
 import POIList from '../Components/POIList'
 
 import * as firebase from 'firebase';
@@ -20,12 +21,12 @@ export default class App extends React.Component {
 
     constructor(props) {
         super(props);
-        this.itemsRef = firebaseApp.database().ref('addresses');
+        this.addressesRef = firebaseApp.database().ref('addresses');
+        this.weatherRef = firebaseApp.database().ref('weather');
         this.state = {
             address: '',
             name: '',
-            long: '',
-            lat: '',
+            location: {},
             addresses: [],
             weather: {},
             modalVisible: false
@@ -33,16 +34,39 @@ export default class App extends React.Component {
     }
 
     componentDidMount() {
-        this.listenForItems(this.itemsRef);
-        this.getWeather();
+        this.listenForAddress(this.addressesRef);
+        this.getLocation();
     }
 
-    getWeather() {
-        fetch('http://api.openweathermap.org/data/2.5/weather?id=658226&units=metric&APPID=c76ad520e3b298ae1650c9d7d259ead7')
+    getLocation = async () => {
+        //Check permission
+        let { status } = await Permissions.askAsync(Permissions.LOCATION);
+        if (status !== 'granted') {
+            Alert.alert('No permission to access location');
+        }
+        else {
+            const APIKEY = 'c76ad520e3b298ae1650c9d7d259ead7'
+            let location = await Location.getCurrentPositionAsync({ enableHighAccuracy: true });
+            await this.setState({ location });
+            await this.setState({
+                location: {
+                    long: this.state.location.coords.longitude,
+                    lat: this.state.location.coords.latitude
+                }
+            });
+            this.getWeather(this.state.location.lat.toFixed(2), this.state.location.long.toFixed(2));
+        }
+
+    };
+
+    getWeather(lat, long) {
+        const APIKEY = 'c76ad520e3b298ae1650c9d7d259ead7'
+        fetch(`http://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${long}&units=metric&APPID=${APIKEY}`)
             .then((response) => response.json())
             .then((responseData) => {
                 this.setState({
                     weather: {
+                        date: new Date().toUTCString(),
                         city: responseData.name,
                         temperature: responseData.main.temp,
                         weather: responseData.weather[0].description,
@@ -58,11 +82,21 @@ export default class App extends React.Component {
             <Text style={{ fontSize: 20 }}>{item.address}</Text>
         </View>;
 
-    saveItem = () => {
+    saveAddress = () => {
         if (this.state.address != '' && this.state.name != '') {
-            this.itemsRef.push({ address: this.state.address, name: this.state.name });
+            this.addressesRef.push({ address: this.state.address, name: this.state.name });
             this.refs.toast.show('address saved');
             this.setState({ address: '', name: '', modalVisible: false });
+        }
+        else {
+            this.refs.toast.show('Some data is missing');
+        }
+    };
+
+    saveWeather = () => {
+        if (this.state.location != '') {
+            this.weatherRef.push({ location: this.state.location, weather: this.state.weather});
+            this.refs.toast.show('location and Weather saved');
         }
         else {
             this.refs.toast.show('Some data is missing');
@@ -74,8 +108,8 @@ export default class App extends React.Component {
         this.refs.toast.show('Cancelled');
     };
 
-    listenForItems(itemsRef) {
-        itemsRef.on('value', (snap) => {
+    listenForAddress(addressesRef) {
+        addressesRef.on('value', (snap) => {
             var items = [];
             snap.forEach((child) => {
                 items.push({
@@ -120,7 +154,7 @@ export default class App extends React.Component {
                             />
                         </View>
                         <View style={{ flexDirection: 'row' }}>
-                            <Button onPress={this.saveItem} title="Save" />
+                            <Button onPress={this.saveAddress} title="Save" />
                             <Button onPress={this.cancel} title="Cancel" />
                         </View>
                     </View>
@@ -135,6 +169,7 @@ export default class App extends React.Component {
                         style={{ width: 60, height: 60 }}
                         source={{ uri: weatherIcon }}
                     />
+                    <Button onPress={this.saveWeather} title="Save" />
                 </View>
                 <View style={styles.headercontainer}>
                     <Text style={{ fontSize: 20, marginRight: 40 }}>ALL Addresses</Text>
@@ -173,7 +208,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5FCFF',
     },
     weathercontainer: {
-        flex: 1,
+        flex: 2,
         justifyContent: 'center',
         alignItems: 'center',
         margin: 5

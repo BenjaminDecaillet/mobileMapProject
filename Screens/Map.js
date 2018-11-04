@@ -37,6 +37,7 @@ export default class App extends React.Component {
         else {
             let location = await Location.getCurrentPositionAsync({ enableHighAccuracy: true });
             await this.setState({ location });
+            console.log(location)
             this.setState({
                 long: this.state.location.coords.longitude,
                 lat: this.state.location.coords.latitude,
