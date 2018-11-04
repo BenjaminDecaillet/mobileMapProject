@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View, Button, Alert, TextInput, KeyboardAvoidingView } from 'react-native';
+import { StyleSheet, View, Alert } from 'react-native';
 import { MapView, Location, Permissions } from 'expo';
 
-export default class App extends React.Component {
+export default class Map extends React.Component {
     static navigationOptions = { title: 'Map'};
     constructor(props) {
         super(props);

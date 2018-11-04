@@ -3,11 +3,13 @@ import { StyleSheet} from 'react-native';
 import { createStackNavigator} from 'react-navigation';
 import Home from './Screens/HomeScreen';
 import Map from './Screens/Map';
+import Pedometer from './Screens/PedometerScreen';
 
 
 const MyApp = createStackNavigator({
     Home: {screen: Home},
-    Map: {screen: Map}
+    Map: {screen: Map},
+    Pedometer: {screen: Pedometer}
   });
   
 export default class App extends React.Component {

@@ -1,9 +1,8 @@
 import React from 'react';
 import { AppRegistry, StyleSheet, View, TextInput, Modal, Image } from 'react-native';
-import Toast, { DURATION } from 'react-native-easy-toast';
-import { FormLabel, FormInput, Button, Text, List, ListItem, Icon } from 'react-native-elements';
+import Toast from 'react-native-easy-toast';
+import {  Button, Text, List, ListItem, Icon } from 'react-native-elements';
 import { Location, Permissions } from 'expo';
-import POIList from '../Components/POIList'
 
 import * as firebase from 'firebase';
 
@@ -16,7 +15,7 @@ const firebaseConfig = {
 
 const firebaseApp = firebase.initializeApp(firebaseConfig);
 
-export default class App extends React.Component {
+export default class Home extends React.Component {
     static navigationOptions = { title: 'Home' };
 
     constructor(props) {
@@ -197,6 +196,7 @@ export default class App extends React.Component {
                     </List>
                 </View>
                 <Toast ref="toast" position="top" />
+                <Button title="Pedometer" onPress={() => navigate('Pedometer')}/>
             </View>
         );
     }
