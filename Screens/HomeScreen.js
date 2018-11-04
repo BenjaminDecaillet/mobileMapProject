@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppRegistry, StyleSheet, View, TextInput, Modal, FlatList } from 'react-native';
+import { AppRegistry, StyleSheet, View, TextInput, Modal, Image } from 'react-native';
 import Toast, { DURATION } from 'react-native-easy-toast';
 import { FormLabel, FormInput, Button, Text, List, ListItem, Icon } from 'react-native-elements';
 import POIList from '../Components/POIList'
@@ -27,14 +27,30 @@ export default class App extends React.Component {
             long: '',
             lat: '',
             addresses: [],
+            weather: {},
             modalVisible: false
         };
     }
 
     componentDidMount() {
         this.listenForItems(this.itemsRef);
+        this.getWeather();
     }
 
+    getWeather() {
+        fetch('http://api.openweathermap.org/data/2.5/weather?id=658226&units=metric&APPID=c76ad520e3b298ae1650c9d7d259ead7')
+            .then((response) => response.json())
+            .then((responseData) => {
+                this.setState({
+                    weather: {
+                        city: responseData.name,
+                        temperature: responseData.main.temp,
+                        weather: responseData.weather[0].description,
+                        icon: responseData.weather[0].icon
+                    }
+                });
+            });
+    }
     keyExtractor = (item) => item.id;
 
     renderItem = ({ item }) =>
@@ -75,6 +91,7 @@ export default class App extends React.Component {
 
     render() {
         const { navigate } = this.props.navigation;
+        const weatherIcon = `http://openweathermap.org/img/w/${this.state.weather.icon}.png`
         return (
             <View style={styles.maincontainer}>
                 <Modal animationType="slide"
@@ -108,6 +125,17 @@ export default class App extends React.Component {
                         </View>
                     </View>
                 </Modal>
+                <View style={styles.weathercontainer}>
+                    <Text style={{ fontSize: 20, marginRight: 40 }} h2>{this.state.weather.city}</Text>
+                    <Text>
+                        Temperature : {this.state.weather.temperature} °C {'\n'}
+                        Weather : {this.state.weather.weather}
+                    </Text>
+                    <Image
+                        style={{ width: 60, height: 60 }}
+                        source={{ uri: weatherIcon }}
+                    />
+                </View>
                 <View style={styles.headercontainer}>
                     <Text style={{ fontSize: 20, marginRight: 40 }}>ALL Addresses</Text>
                     <Button title="Add"
@@ -144,6 +172,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#F5FCFF',
     },
+    weathercontainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        margin: 5
+    },
     headercontainer: {
         flex: 1,
         flexDirection: 'row',
@@ -151,20 +185,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#F5FCFF',
     },
-    inputcontainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#F5FCFF',
-    },
     listcontainer: {
         flex: 4,
         backgroundColor: '#F5FCFF',
-    },
-    listdetails: {
-        width: '100%',
-        backgroundColor: 'red'
     }
-
 });
 AppRegistry.registerComponent('nativefirebase', () => nativefirebase);
