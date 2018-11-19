@@ -1,10 +1,13 @@
 import React from 'react';
 import { Component } from 'react';
-import { View, Text } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
+import { Text } from 'react-native-elements';
 import { Pedometer } from "expo";
 
 export default class PedometerScreen extends Component {
-    static navigationOptions = { title: 'Pedometer' };
+    static navigationOptions = { 
+        title: 'Pedometer'
+    };
 
     constructor(props) {
         super(props);
@@ -66,15 +69,24 @@ export default class PedometerScreen extends Component {
     render() {
         return (
             <View>
-                <Text>
-                    Pedometer.isAvailableAsync(): {this.state.isPedometerAvailable}
-                </Text>
-                <Text>
-                    Steps taken in the last 24 hours: {this.state.pastStepCount}
-                </Text>
-                <Text>
-                    Walk! And watch this go up: {this.state.currentStepCount}
-                </Text>
+                {this.state.isPedometerAvailable === 'checking' ? 
+                    <ActivityIndicator size="large" color="#0000ff" />
+                    :
+                    <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+                        <Text h3>
+                            {this.state.pastStepCount} steps
+                        </Text>
+                        <Text>
+                            taken in the last 24 hours
+                        </Text>
+                        <Text h3>
+                            {this.state.currentStepCount} steps
+                        </Text>
+                        <Text>
+                            Current counter
+                        </Text>
+                    </View>
+                }            
             </View>
         );
     }

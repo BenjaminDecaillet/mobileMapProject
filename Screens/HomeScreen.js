@@ -1,13 +1,16 @@
 import React from 'react';
-import { AppRegistry, StyleSheet, View, TextInput, Modal, Image } from 'react-native';
+import { AppRegistry, StyleSheet, View, TextInput, Modal, Image, ActivityIndicator, ScrollView } from 'react-native';
 import Toast from 'react-native-easy-toast';
-import {  Button, Text, List, ListItem, Icon } from 'react-native-elements';
+import {  Button, Text, List, ListItem, Icon, FormLabel, FormInput, FormValidationMessage } from 'react-native-elements';
 import { Location, Permissions, SQLite } from 'expo';
 
 const db = SQLite.openDatabase('tourismML.db');
 
 export default class Home extends React.Component {
-    static navigationOptions = { title: 'Home' };
+    static navigationOptions = { 
+        title: 'Home',
+        
+    };
 
     constructor(props) {
         super(props);
@@ -51,7 +54,6 @@ export default class Home extends React.Component {
             Alert.alert('No permission to access location');
         }
         else {
-            const APIKEY = 'c76ad520e3b298ae1650c9d7d259ead7'
             let location = await Location.getCurrentPositionAsync({ enableHighAccuracy: true });
             await this.setState({ location });
             await this.setState({
@@ -78,8 +80,6 @@ export default class Home extends React.Component {
                         weather: responseData.weather[0].description,
                         icon: responseData.weather[0].icon
                     }
-                }, function(){
-                    console.log(this.state);
                 })
             });
     }
@@ -149,7 +149,7 @@ export default class Home extends React.Component {
                         address: '', 
                         name: '', 
                         modalVisible: false
-                    }, () => {console.log(rows._array)})           
+                    })           
                 }
             );
         });
@@ -159,8 +159,6 @@ export default class Home extends React.Component {
     // WEATHER MANAGEMENT
     //
     saveWeather = () => {
-        console.log('weather');
-        console.log(this.state);
         if (this.state.location != '') {
             // save the address in the local db
             db.transaction(tx => {
@@ -203,78 +201,111 @@ export default class Home extends React.Component {
     render() {
         const { navigate } = this.props.navigation;
         const weatherIcon = `http://openweathermap.org/img/w/${this.state.weather.icon}.png`
-        return (
+        return (       
             <View style={styles.maincontainer}>
                 <Modal animationType="slide"
                     transparent={false}
                     visible={this.state.modalVisible}
                     onRequestClose={() => { }} >
                     <View style={styles.inputcontainer}>
-                        <View >
-                            <TextInput
-                                style={{
-                                    height: 40, width: 200, borderColor: 'gray',
-                                    borderWidth: 1, marginBottom: 7
-                                }}
+                        <View>
+                            <FormLabel>Address</FormLabel>
+                            <FormInput 
                                 onChangeText={(address) => this.setState({ address })}
                                 value={this.state.address}
-                                placeholder="address"
+                                placeholder="Type in an address"
+                                inputStyle={{borderBottomColor:'darkslateblue', borderBottomWidth:1}}
                             />
-                            <TextInput
-                                style={{
-                                    height: 40, width: 200, borderColor: 'gray',
-                                    borderWidth: 1, marginBottom: 7
-                                }}
+                            <FormLabel>Name</FormLabel>
+                            <FormInput 
                                 onChangeText={(name) => this.setState({ name })}
                                 value={this.state.name}
-                                placeholder="name"
+                                placeholder="Type in a name"
+                                inputStyle={{borderBottomColor:'darkslateblue', borderBottomWidth:1}}
                             />
                         </View>
-                        <View style={{ flexDirection: 'row' }}>
-                            <Button onPress={this.saveAddress} title="Save" />
-                            <Button onPress={this.cancel} title="Cancel" />
+                        <View style={{ flexDirection: 'row', padding:20 }}>
+                            <Button 
+                                onPress={this.saveAddress}
+                                title="Save"
+                                backgroundColor='#3D6DCC'
+                            />
+                            <Button
+                                onPress={this.cancel}
+                                title="Cancel"
+                                backgroundColor='#3D6DCC'
+                            />
                         </View>
                     </View>
                 </Modal>
                 <View style={styles.weathercontainer}>
-                    <Text style={{ fontSize: 20, marginRight: 40 }} h2>{this.state.weather.city}</Text>
-                    <Text>
-                        Temperature : {this.state.weather.temperature} °C {'\n'}
-                        Weather : {this.state.weather.weather}
-                    </Text>
-                    <Image
-                        style={{ width: 60, height: 60 }}
-                        source={{ uri: weatherIcon }}
-                    />
-                    <Button onPress={this.saveWeather} title="Save" />
+                    {typeof this.state.weather.city === 'undefined' ? 
+                        <View>
+                            <ActivityIndicator size="large" color="#0000ff" />
+                            <Text>Loading weather for your position...</Text>
+                        </View>    
+                        :
+                        null
+                    }
+                    {typeof this.state.weather.city !== 'undefined' ? 
+                        <View>
+                            <Text style={{ fontSize: 20, marginRight: 40 }} h2>{this.state.weather.city}</Text>
+                            <Text>
+                                Temperature : {this.state.weather.temperature} °C {'\n'}
+                                Weather : {this.state.weather.weather}
+                            </Text>
+                            <Image
+                                style={{ width: 60, height: 60 }}
+                                source={{ uri: weatherIcon }}
+                            />
+                            <Button
+                                onPress={this.saveWeather}
+                                title="Save"
+                                backgroundColor='#3D6DCC'
+                            />
+                        </View>
+                        :
+                        null
+                    }
                 </View>
-                <View style={styles.headercontainer}>
-                    <Text style={{ fontSize: 20, marginRight: 40 }}>ALL Addresses</Text>
-                    <Button title="Add"
-                        onPress={() => this.setState({ modalVisible: true })} />
+                <View style={styles.listcontainer}>
+                    <View style={{ flexDirection: 'row', padding: 10 }}>
+                        <Text h4>Saved addresses</Text>                    
+                    </View>                    
+                    <ScrollView>
+                        <List>
+                            {
+                                this.state.addresses.map((item) => (
+                                    <ListItem
+                                        key={item.id}
+                                        title={item.name}
+                                        subtitle={item.address}
+                                        rightIcon={
+                                            <Icon
+                                                name={'chevron-right'}
+                                                size={20}                                            
+                                            />
+                                        }
+                                        onPress={() => navigate('Map', { address: item.address, title: item.name })}
+                                    />
+                                ))
+                            }
+                        </List>
+                    </ScrollView>
+                    <View style={{ flexDirection:"row", justifyContent: 'center', alignItems: 'center', padding:20 }}>
+                        <Button 
+                            title="Add an address"
+                            onPress={() => this.setState({ modalVisible: true })}
+                            backgroundColor='#3D6DCC'
+                        />
+                        <Button 
+                            title="Pedometer"
+                            onPress={() => navigate('Pedometer')}
+                            backgroundColor='#3D6DCC'
+                        />
+                    </View>          
                 </View>
-                <View style={styles.listcontainer}>                    
-                    <List>
-                        {
-                            this.state.addresses.map((item) => (
-                                <ListItem
-                                    key={item.id}
-                                    title={item.name}
-                                    subtitle={item.address}
-                                    rightIcon={
-                                        <Icon
-                                            name={'chevron-right'}
-                                            size={20}
-                                            onPress={() => navigate('Map', { address: item.address, title: item.name })}
-                                        />
-                                    }
-                                />
-                            ))
-                        }
-                    </List>                    
-                </View>
-                <Toast ref="toast" position="top" />
-                <Button title="Pedometer" onPress={() => navigate('Pedometer')}/>
+                <Toast ref="toast" position="bottom" />                
             </View>
         );
     }
@@ -283,7 +314,6 @@ export default class Home extends React.Component {
 const styles = StyleSheet.create({
     maincontainer: {
         flex: 1,
-        backgroundColor: '#F5FCFF',
     },
     weathercontainer: {
         flex: 2,
@@ -296,11 +326,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#F5FCFF',
+        borderTopColor:'#000000',
+        borderTopWidth:1
     },
     listcontainer: {
-        flex: 4,
-        backgroundColor: '#F5FCFF',
+        flex: 6,
+    },
+    inputcontainer:{
+        flex:1,
+        justifyContent: 'center',
+        alignItems: 'center',
     }
 });
-AppRegistry.registerComponent('nativefirebase', () => nativefirebase);

@@ -7,19 +7,16 @@ import {  Button, Text, List, ListItem } from 'react-native-elements';
 
 
 export default class Map extends React.Component {
-    static navigationOptions = { title: 'Map'};
+    static navigationOptions = { 
+        title: 'Map',
+    };
     
     constructor(props) {
         super(props);
         this.state = {
-            /*geoLoc: '',
-            long: 0,
-            lat: 0,
-            title: '',
-            forceRefresh: Math.floor(Math.random() * 100),
-            location: null,*/
             modal:false,
             waitingRouteDetails: true,
+            routeBeingFetched: false,
             markers: [],
             address: {
                 address: this.props.navigation.state.params.address,
@@ -46,7 +43,6 @@ export default class Map extends React.Component {
 
     componentDidMount() {
         this.forwardGeoCode();
-        //this.getLocation();
     }
 
     getLocation = async () => {
@@ -72,8 +68,6 @@ export default class Map extends React.Component {
         // preparing request
         const api_key = API_KEYS.OPEN_ROUTE_SERVICE;
         const url = `https://api.openrouteservice.org/geocode/search?api_key=${api_key}&text=${this.state.address.address}`
-
-        console.log(url);
 
         // request
         fetch(url)
@@ -105,6 +99,11 @@ export default class Map extends React.Component {
     }
 
     getRoute = async () => {
+        // disable the button used to retrieve the route while getting the route
+        this.setState({
+            routeBeingFetched: true
+        });
+
         // get current position
         await this.getLocation();
 
@@ -118,16 +117,6 @@ export default class Map extends React.Component {
         fetch(url)
             .then((response) => response.json())
             .then((responseData) => {
-                /*console.log('distance: ' + responseData.routes[0].summary.distance +' meters');
-                console.log('duration: ' + (responseData.routes[0].summary.duration)/60 + ' minutes');               
-
-                console.log('STEPS');
-                console.log('-----');
-
-                responseData.routes[0].segments[0].steps.forEach(step => {
-                    console.log(step.instruction + '(Distance: ' + step.distance + ' meters, estimated time: ' + (step.duration)/60 + 'minutes' );                    
-                });*/
-
                 // transform array of coordinates to objects LatLng for the path on the map
                 const coordinates = [];
                 responseData.routes[0].geometry.forEach(coordinate => {
@@ -140,9 +129,6 @@ export default class Map extends React.Component {
                 const markers = [];
                 markers.push(coordinates[0]);
                 markers.push(coordinates[coordinates.length-1]);
-                /*console.log(markers);
-                console.log(coordinates);
-                console.log(responseData.routes[0].geometry);*/
 
                 const duration = (responseData.routes[0].summary.duration)/60;
                 const distance = responseData.routes[0].summary.distance;
@@ -155,7 +141,8 @@ export default class Map extends React.Component {
                         steps:responseData.routes[0].segments[0].steps
                     },
                     markers:markers,
-                    waitingRouteDetails:false
+                    waitingRouteDetails:false,
+                    routeBeingFetched: false
                 })
             });
     }
@@ -201,15 +188,18 @@ export default class Map extends React.Component {
                         />                        
                     </MapView>
                 </View>
-                <View style={{ flexDirection: 'row' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding:20, backgroundColor:'#fff' }}>
                     <Button 
                         title="Go there" 
                         onPress= {this.getRoute}
+                        disabled={this.state.routeBeingFetched}
+                        backgroundColor='#3D6DCC'
                     />
                     <Button 
                         title="Route details" 
                         onPress= {this.getRouteDetails}
                         disabled={this.state.waitingRouteDetails}
+                        backgroundColor='#3D6DCC'
                     />
                 </View>
                 <Modal animationType="slide"
