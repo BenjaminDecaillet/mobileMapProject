@@ -2,26 +2,15 @@ import React from 'react';
 import { AppRegistry, StyleSheet, View, TextInput, Modal, Image } from 'react-native';
 import Toast from 'react-native-easy-toast';
 import {  Button, Text, List, ListItem, Icon } from 'react-native-elements';
-import { Location, Permissions } from 'expo';
+import { Location, Permissions, SQLite } from 'expo';
 
-import * as firebase from 'firebase';
-
-const firebaseConfig = {
-    apiKey: "AIzaSyAlqehP9XgJklN8ChRbAShB3xhN4G3Eq78",
-    authDomain: "benproject-2e82e.firebaseapp.com",
-    databaseURL: "https://benproject-2e82e.firebaseio.com",
-    storageBucket: "benproject-2e82e.appspot.com"
-};
-
-const firebaseApp = firebase.initializeApp(firebaseConfig);
+const db = SQLite.openDatabase('tourismML.db');
 
 export default class Home extends React.Component {
     static navigationOptions = { title: 'Home' };
 
     constructor(props) {
         super(props);
-        this.addressesRef = firebaseApp.database().ref('addresses');
-        this.weatherRef = firebaseApp.database().ref('weather');
         this.state = {
             address: '',
             name: '',
@@ -33,8 +22,26 @@ export default class Home extends React.Component {
     }
 
     componentDidMount() {
-        this.listenForAddress(this.addressesRef);
+        //this.resetDatabase();
+        this.createDatabase();
+        this.updateAddressesList();
+        this.getWeatherFromDb();
         this.getLocation();
+    }
+
+    resetDatabase = () => {
+        console.log('delete');
+        db.transaction(tx => {
+            tx.executeSql('drop table address;');
+            tx.executeSql('drop table weather;');
+        });
+    }
+
+    createDatabase = () => {
+        db.transaction(tx => {
+            tx.executeSql('create table if not exists address (id integer primary key not null, address text not null, name text not null);');
+            tx.executeSql('create table if not exists weather (id integer primary key not null, latitude text not null, longitude text not null, date text not null, city ext not null, weather text not null, temperature text not null, icon text not null);');
+        });
     }
 
     getLocation = async () => {
@@ -71,34 +78,115 @@ export default class Home extends React.Component {
                         weather: responseData.weather[0].description,
                         icon: responseData.weather[0].icon
                     }
-                });
+                }, function(){
+                    console.log(this.state);
+                })
             });
     }
-    keyExtractor = (item) => item.id;
 
-    renderItem = ({ item }) =>
-        <View >
-            <Text style={{ fontSize: 20 }}>{item.address}</Text>
-        </View>;
+    getWeatherFromDb = () => {
+        console.log('weather from db');
+        db.transaction(tx => {
+            tx.executeSql(
+                // SQL statement
+                'SELECT * FROM Weather',
 
+                // arguments for statement
+                [],
+
+                // success function
+                (_, { rows }) => {
+                    console.log(rows._array)  
+                }
+            );
+        });
+    }
+
+    //
+    // ADDRESSES MANAGEMENT
+    //
     saveAddress = () => {
-        if (this.state.address != '' && this.state.name != '') {
-            this.addressesRef.push({ address: this.state.address, name: this.state.name });
-            this.refs.toast.show('address saved');
-            this.setState({ address: '', name: '', modalVisible: false });
+        if (this.state.address && this.state.name) {
+            // save the address in the local db
+            db.transaction(tx => {
+                tx.executeSql(
+                    // statement
+                    'insert into Address (address, name) values (?, ?)',
+                    
+                    // arguments
+                    [this.state.address, this.state.name],
+
+                    // sucess function
+                    () => {
+                        this.showToast('The address has been saved.');
+                        this.updateAddressesList();
+                    },                    
+
+                    // error function
+                    this.showToast('Impossible to save data in the database.')
+                );
+            });
         }
         else {
-            this.refs.toast.show('Some data is missing');
+            this.showToast('Address and/or name is missing.');
         }
     };
 
+    updateAddressesList = () => {
+        // update the addresses list in state and reset the state of the text inputs
+        db.transaction(tx => {
+            tx.executeSql(
+                // SQL statement
+                'SELECT * FROM Address',
+
+                // arguments for statement
+                [],
+
+                // success function
+                (_, { rows }) => {
+                    this.setState({
+                        addresses: rows._array,
+                        address: '', 
+                        name: '', 
+                        modalVisible: false
+                    }, () => {console.log(rows._array)})           
+                }
+            );
+        });
+    }
+
+    //
+    // WEATHER MANAGEMENT
+    //
     saveWeather = () => {
+        console.log('weather');
+        console.log(this.state);
         if (this.state.location != '') {
-            this.weatherRef.push({ location: this.state.location, weather: this.state.weather});
-            this.refs.toast.show('location and Weather saved');
+            // save the address in the local db
+            db.transaction(tx => {
+                tx.executeSql(
+                    // statement
+                    'insert into Weather (latitude, longitude, date, city, weather, temperature, icon) values (?, ?, ?, ?, ?, ?, ?)',
+
+                    // arguments
+                    [this.state.location.lat, this.state.location.long, this.state.weather.date, this.state.weather.city, this.state.weather.weather, this.state.weather.temperature, this.state.weather.icon ],
+
+                    // sucess function
+                    () => {
+                        this.showToast('Weather saved.');
+                        this.getWeatherFromDb();
+                    },
+
+                    // error function
+                    (text, error) => {
+                        console.log(error);
+                        this.showToast('Impossible to save data in the database.');
+                    }
+                );
+            });
         }
         else {
-            this.refs.toast.show('Some data is missing');
+            this.showToast('Some data is missing.');
         }
     };
 
@@ -107,19 +195,9 @@ export default class Home extends React.Component {
         this.refs.toast.show('Cancelled');
     };
 
-    listenForAddress(addressesRef) {
-        addressesRef.on('value', (snap) => {
-            var items = [];
-            snap.forEach((child) => {
-                items.push({
-                    id: child.key,
-                    address: child.val().address,
-                    name: child.val().name
-                });
-            });
-
-            this.setState({ addresses: items });
-        });
+    // method to show toasts
+    showToast = (text) => {
+        this.refs.toast.show(text);
     }
 
     render() {
@@ -175,7 +253,7 @@ export default class Home extends React.Component {
                     <Button title="Add"
                         onPress={() => this.setState({ modalVisible: true })} />
                 </View>
-                <View style={styles.listcontainer}>
+                <View style={styles.listcontainer}>                    
                     <List>
                         {
                             this.state.addresses.map((item) => (
@@ -187,13 +265,13 @@ export default class Home extends React.Component {
                                         <Icon
                                             name={'chevron-right'}
                                             size={20}
-                                            onPress={() => navigate('Map', { address: item.address })}
+                                            onPress={() => navigate('Map', { address: item.address, title: item.name })}
                                         />
                                     }
                                 />
                             ))
                         }
-                    </List>
+                    </List>                    
                 </View>
                 <Toast ref="toast" position="top" />
                 <Button title="Pedometer" onPress={() => navigate('Pedometer')}/>
