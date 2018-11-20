@@ -1,26 +1,34 @@
 import React from 'react';
-import { AppRegistry, StyleSheet, View, TextInput, Modal, Image, ActivityIndicator, ScrollView } from 'react-native';
+import { StyleSheet, View, Image, ActivityIndicator, ScrollView } from 'react-native';
 import Toast from 'react-native-easy-toast';
-import {  Button, Text, List, ListItem, Icon, FormLabel, FormInput, FormValidationMessage } from 'react-native-elements';
+import {  Button, Text, List, ListItem, Icon, FormLabel, FormInput } from 'react-native-elements';
+import Dialog, { DialogContent, DialogTitle, DialogButton } from 'react-native-popup-dialog';
+
 import { Location, Permissions, SQLite } from 'expo';
+
+import API_KEYS from '../config/api_keys';
 
 const db = SQLite.openDatabase('tourismML.db');
 
 export default class Home extends React.Component {
     static navigationOptions = { 
-        title: 'Home',
-        
+        title: 'Home',        
     };
 
     constructor(props) {
         super(props);
         this.state = {
-            address: '',
-            name: '',
+            address:{
+                address: '',
+                name: '',
+                latitude: 0,
+                longitude: 0
+            },            
             location: {},
             addresses: [],
             weather: {},
-            modalVisible: false
+            modalVisible: false,
+            dialogVisible: false
         };
     }
 
@@ -42,7 +50,7 @@ export default class Home extends React.Component {
 
     createDatabase = () => {
         db.transaction(tx => {
-            tx.executeSql('create table if not exists address (id integer primary key not null, address text not null, name text not null);');
+            tx.executeSql('create table if not exists address (id integer primary key not null, address text not null, name text not null, latitude text not null, longitude text not null);');
             tx.executeSql('create table if not exists weather (id integer primary key not null, latitude text not null, longitude text not null, date text not null, city ext not null, weather text not null, temperature text not null, icon text not null);');
         });
     }
@@ -105,16 +113,19 @@ export default class Home extends React.Component {
     //
     // ADDRESSES MANAGEMENT
     //
-    saveAddress = () => {
-        if (this.state.address && this.state.name) {
+    saveAddress = async () => {
+        if (this.state.address.address && this.state.address.name) {
+            // get latitude and longitude for address
+            await this.forwardGeoCode();
+
             // save the address in the local db
             db.transaction(tx => {
                 tx.executeSql(
                     // statement
-                    'insert into Address (address, name) values (?, ?)',
+                    'insert into Address (address, name, latitude, longitude) values (?, ?, ?, ?)',
                     
                     // arguments
-                    [this.state.address, this.state.name],
+                    [this.state.address.address, this.state.address.name, this.state.address.latitude, this.state.address.longitude],
 
                     // sucess function
                     () => {
@@ -132,6 +143,26 @@ export default class Home extends React.Component {
         }
     };
 
+    forwardGeoCode = async () => {
+        console.log('geocode');
+        // preparing request
+        const api_key = API_KEYS.OPEN_ROUTE_SERVICE;
+        const url = `https://api.openrouteservice.org/geocode/search?api_key=${api_key}&text=${this.state.address.address}`
+
+        // request
+        await fetch(url)
+            .then((response) => response.json())
+            .then((responseData) => {
+                console.log(responseData);
+                
+                const address = this.state.address;
+                address.latitude = responseData.features[0].geometry.coordinates[1];
+                address.longitude = responseData.features[0].geometry.coordinates[0];
+
+                this.setState({address});
+            });
+    }
+
     updateAddressesList = () => {
         // update the addresses list in state and reset the state of the text inputs
         db.transaction(tx => {
@@ -144,12 +175,17 @@ export default class Home extends React.Component {
 
                 // success function
                 (_, { rows }) => {
+                    console.log(rows._array);
                     this.setState({
                         addresses: rows._array,
-                        address: '', 
-                        name: '', 
+                        /*address:{
+                            address: '',
+                            name: '',
+                            latitude: 0,
+                            longitude: 0
+                        },*/
                         modalVisible: false
-                    })           
+                    });           
                 }
             );
         });
@@ -188,10 +224,13 @@ export default class Home extends React.Component {
         }
     };
 
-    cancel = () => {
-        this.setState({ modalVisible: false });
-        this.refs.toast.show('Cancelled');
-    };
+    openDialog = () => {
+        this.setState({ dialogVisible: true });
+    }
+
+    closeDialog = () => {
+        this.setState({ dialogVisible: false });
+    }
 
     // method to show toasts
     showToast = (text) => {
@@ -203,41 +242,50 @@ export default class Home extends React.Component {
         const weatherIcon = `http://openweathermap.org/img/w/${this.state.weather.icon}.png`
         return (       
             <View style={styles.maincontainer}>
-                <Modal animationType="slide"
-                    transparent={false}
-                    visible={this.state.modalVisible}
-                    onRequestClose={() => { }} >
-                    <View style={styles.inputcontainer}>
-                        <View>
-                            <FormLabel>Address</FormLabel>
-                            <FormInput 
-                                onChangeText={(address) => this.setState({ address })}
-                                value={this.state.address}
-                                placeholder="Type in an address"
-                                inputStyle={{borderBottomColor:'darkslateblue', borderBottomWidth:1}}
-                            />
-                            <FormLabel>Name</FormLabel>
-                            <FormInput 
-                                onChangeText={(name) => this.setState({ name })}
-                                value={this.state.name}
-                                placeholder="Type in a name"
-                                inputStyle={{borderBottomColor:'darkslateblue', borderBottomWidth:1}}
-                            />
-                        </View>
-                        <View style={{ flexDirection: 'row', padding:20 }}>
-                            <Button 
-                                onPress={this.saveAddress}
-                                title="Save"
-                                backgroundColor='#3D6DCC'
-                            />
-                            <Button
-                                onPress={this.cancel}
-                                title="Cancel"
-                                backgroundColor='#3D6DCC'
-                            />
-                        </View>
-                    </View>
-                </Modal>
+                    <Dialog
+                        visible={this.state.dialogVisible}
+                        width={0.9}
+                        onTouchOutside={() => {
+                            this.setState({ dialogVisible: false });
+                        }}
+                        dialogTitle={<DialogTitle title="Route details" />}
+                        actions={[
+                            <DialogButton
+                                key='cancel-dialog'
+                                text="Cancel"
+                                onPress={ this.closeDialog }
+                                textStyle={{ color: '#3D6DCC' }}
+                            />,
+                            <DialogButton
+                                key='add-address-dialog'
+                                text="Add address"
+                                onPress={ () => { this.closeDialog(); this.saveAddress(); } }
+                                textStyle={{ color: '#3D6DCC' }}
+                            />,
+                            ]}
+                    >
+                        <DialogContent>
+                                <Text>Please choose the type of transport you want to use:</Text>
+                                <View>
+                                    <FormLabel>Address</FormLabel>
+                                    <FormInput 
+                                        onChangeText={(address) => this.setState({ address:{...this.state.address, address: address }})}
+                                        value={this.state.address.address}
+                                        placeholder="Type in an address"
+                                        inputStyle={{borderBottomColor:'darkslateblue', borderBottomWidth:1}}
+                                        containerStyle={{ width: '100%' }}
+                                    />
+                                    <FormLabel>Name</FormLabel>
+                                    <FormInput 
+                                        onChangeText={(name) => this.setState({ address:{...this.state.address, name : name }})}
+                                        value={this.state.address.name}
+                                        placeholder="Type in a name"
+                                        inputStyle={{borderBottomColor:'darkslateblue', borderBottomWidth:1}}
+                                    />
+                                </View>
+                        </DialogContent>
+                    </Dialog>
+                
                 <View style={styles.weathercontainer}>
                     {typeof this.state.weather.city === 'undefined' ? 
                         <View>
@@ -286,7 +334,12 @@ export default class Home extends React.Component {
                                                 size={20}                                            
                                             />
                                         }
-                                        onPress={() => navigate('Map', { address: item.address, title: item.name })}
+                                        onPress={() => navigate('Map', { 
+                                            address: item.address, 
+                                            title: item.name,
+                                            lat: parseFloat(item.latitude),
+                                            long: parseFloat(item.longitude) 
+                                        })}
                                     />
                                 ))
                             }
@@ -295,7 +348,7 @@ export default class Home extends React.Component {
                     <View style={{ flexDirection:"row", justifyContent: 'center', alignItems: 'center', padding:20 }}>
                         <Button 
                             title="Add an address"
-                            onPress={() => this.setState({ modalVisible: true })}
+                            onPress={() => this.setState({ dialogVisible: true })}
                             backgroundColor='#3D6DCC'
                         />
                         <Button 
