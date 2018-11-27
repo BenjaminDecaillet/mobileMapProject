@@ -4,13 +4,15 @@ import { createStackNavigator } from 'react-navigation';
 import Home from './Screens/HomeScreen';
 import Map from './Screens/Map';
 import Pedometer from './Screens/PedometerScreen';
+import POIDetail from './Screens/POIDetail'
 
 
 const MyApp = createStackNavigator(
   {
     Home: {screen: Home},
     Map: {screen: Map},
-    Pedometer: {screen: Pedometer}
+    Pedometer: {screen: Pedometer},
+    POIDetail: {screen: POIDetail}
   },
   {
     initialRouteName: 'Home',
