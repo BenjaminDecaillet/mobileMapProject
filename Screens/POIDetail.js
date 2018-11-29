@@ -73,7 +73,7 @@ class POIDetail extends Component {
     }
 
     _displayPoi() {
-        const { poi, navigation } = this.props.navigation.state.params;
+        const { poi, navigation, saveHistory, weather } = this.props.navigation.state.params;
         if (poi != undefined) {
             let street = '';
             let postalCode = '';
@@ -110,6 +110,7 @@ class POIDetail extends Component {
                             }
 
                         </View>
+
                         <View style={{ flex: 2 }}>
                             <Text style={styles.description_text}>{poi.description.body}</Text>
                             <Text style={styles.description_text}>
@@ -133,7 +134,11 @@ class POIDetail extends Component {
                                 address: address,
                                 title: poi.name.en,
                                 lat: parseFloat(poi.location.lat),
-                                long: parseFloat(poi.location.lon)
+                                long: parseFloat(poi.location.lon),
+                                saveHistory: saveHistory,
+                                weather: weather,
+                                poitags : poi.tags
+
                             })}
                             backgroundColor='#3D6DCC'
                         />

@@ -3,10 +3,11 @@ import { StyleSheet, View, Alert, Modal, ScrollView, ActivityIndicator } from 'r
 import { MapView, Location, Permissions } from 'expo';
 
 import API_KEYS from '../config/api_keys';
-import {  Button, Text, List, ListItem } from 'react-native-elements';
+import { Button, Text, List, ListItem } from 'react-native-elements';
 
 import Dialog, { DialogContent, DialogTitle, DialogButton } from 'react-native-popup-dialog';
-import RadioForm, {RadioButton, RadioButtonInput, RadioButtonLabel} from 'react-native-simple-radio-button';
+import RadioForm, { RadioButton, RadioButtonInput, RadioButtonLabel } from 'react-native-simple-radio-button';
+import { OUTSIDE_VENUES, INSIDE_VENUES, ALWAYS_OK } from '../ML/FilterTypes';
 
 import moment from 'moment';
 import polyline from '@mapbox/polyline';
@@ -17,28 +18,29 @@ const routes_profile = [
         value: 'public'
     },
     {
-        label: 'Walk', 
-        value: 'foot-walking' 
+        label: 'Walk',
+        value: 'foot-walking'
     },
     {
-        label: 'Car', 
+        label: 'Car',
         value: 'driving-car'
     },
     {
-        label: 'Bicycle', 
-        value:'cycling-regular'
+        label: 'Bicycle',
+        value: 'cycling-regular'
     }
 ];
+const venues = [...OUTSIDE_VENUES, ...INSIDE_VENUES, ...ALWAYS_OK]
 
 export default class Map extends React.Component {
-    static navigationOptions = { 
+    static navigationOptions = {
         title: 'Map',
     };
-    
+
     constructor(props) {
         super(props);
         this.state = {
-            modal:false,
+            modal: false,
             dialogVisible: false,
             waitingRouteDetails: true,
             routeBeingFetched: false,
@@ -62,12 +64,12 @@ export default class Map extends React.Component {
                 latitudeDelta: 0.0322,
                 longitudeDelta: 0.0221,
             },
-            position:{
+            position: {
                 latitude: 0,
                 longitude: 0
             },
-            route:{
-                polyline:[],
+            route: {
+                polyline: [],
                 distance: '',
                 duration: '',
                 steps: []
@@ -87,9 +89,9 @@ export default class Map extends React.Component {
         else {
             let location = await Location.getCurrentPositionAsync({ enableHighAccuracy: true });
             //await this.setState({ location });
-            console.log(location)
+            //console.log(location)
             await this.setState({
-                position:{
+                position: {
                     latitude: location.coords.latitude,
                     longitude: location.coords.longitude
                 }
@@ -106,7 +108,7 @@ export default class Map extends React.Component {
         fetch(url)
             .then((response) => response.json())
             .then((responseData) => {
-                console.log(responseData);
+                //console.log(responseData);
                 const route = this.state.route;
                 route.polyline = [];
 
@@ -125,27 +127,35 @@ export default class Map extends React.Component {
                                 title: this.state.address.title
                             }
                         ],
-                        route:route
+                        route: route
                     }
                 );
             });
     }
 
-    getRoute = async () => {
+    getRoute = async (saveHistory, weather, poitags) => {
         // disable the button used to retrieve the route while getting the route
         this.setState({
             routeBeingFetched: true
         });
+        let tagIndex;
+        const route = this.state.routeProfile;
+        poitags.map(function (tag) {
+            tagIndex = venues.findIndex(venues => venues === tag.name)
+            if (tagIndex !== -1) {
+                saveHistory(weather, tag.name, route);
+            }
+        })
 
         // get current position
         await this.getLocation();
 
-        switch(this.state.routeProfile){
+        switch (this.state.routeProfile) {
             case 'public':
                 this.getRoutePublicTransports();
                 return;
             default:
-                this.getRouteOpenRouteService(); 
+                this.getRouteOpenRouteService();
         }
     }
 
@@ -194,41 +204,41 @@ export default class Map extends React.Component {
             }
           }`;
 
-          fetch(
-              url,
-              {
+        fetch(
+            url,
+            {
                 method: 'POST',
-                headers: {'Content-Type':'application/graphql'},
+                headers: { 'Content-Type': 'application/graphql' },
                 body: graphqlarguments
             }
-          )
-          .then(response => response.json())
-          .then(responseData => {
+        )
+            .then(response => response.json())
+            .then(responseData => {
                 // check if route planner could find at least one route
-                if(responseData.data.plan.itineraries.length > 0){
+                if (responseData.data.plan.itineraries.length > 0) {
                     const steps = [];
                     const coordinates = [];
                     let duration = 0;
                     let distance = 0;
-                    
+
                     responseData.data.plan.itineraries[0].legs.forEach(leg => {
                         // convert timestamp to dates with moment library
                         const start = moment(leg.startTime);
                         const end = moment(leg.endTime);
-    
+
                         // duration is in secondes
-                        duration += (leg.duration)/60;
-    
+                        duration += (leg.duration) / 60;
+
                         // distance is in meters
                         distance += leg.distance;
-    
+
                         // add steps following the desired schema to the steps array
                         steps.push({
                             distance: leg.distance,
                             duration: leg.duration,
                             instruction: `${moment(start).format('HH:mm')}-${moment(end).format('HH:mm')}: ${leg.mode} from ${leg.from.name} to ${leg.to.name}`,
                         });
-    
+
                         // get the path to this leg's destination provided by the API and convert it to an array of latitude/longitude
                         // instead of Google polyline-encoded format
                         let polylineExtracted = polyline.decode(leg.legGeometry.points);
@@ -239,29 +249,29 @@ export default class Map extends React.Component {
                             });
                         });
                     });
-    
+
                     // Add current's location of user  
                     const markers = this.state.markers;
                     const startMarker = coordinates[0];
                     startMarker.title = 'Your location';
                     markers.push(startMarker);
-    
+
                     // modify the state to display all these informations
                     this.setState({
-                        route:{
-                            polyline:coordinates,
-                            duration:duration,
-                            distance:distance,
-                            steps:steps
+                        route: {
+                            polyline: coordinates,
+                            duration: duration,
+                            distance: distance,
+                            steps: steps
                         },
-                        markers:markers,
-                        waitingRouteDetails:false,
+                        markers: markers,
+                        waitingRouteDetails: false,
                         routeBeingFetched: false
                     });
-                }else{
+                } else {
                     // display an error message
                     this.setState({
-                        waitingRouteDetails:false,
+                        waitingRouteDetails: false,
                         routeBeingFetched: false
                     });
 
@@ -269,20 +279,20 @@ export default class Map extends React.Component {
                         'Error',
                         'Impossible to find a route to the desired location.',
                         [
-                          {text: 'OK'},
+                            { text: 'OK' },
                         ]
-                      )
+                    )
                 }
-                
-          })
-          .catch((error) => {
-              console.log(error);
-          });
+
+            })
+            .catch((error) => {
+                console.log(error);
+            });
     }
 
     getRouteOpenRouteService = () => {
         // get the profile choosed by the user
-        console.log(this.state.routeProfile);
+        //console.log(this.state.routeProfile);
 
         // preparing request
         const api_key = API_KEYS.OPEN_ROUTE_SERVICE;
@@ -290,7 +300,7 @@ export default class Map extends React.Component {
         const url = `https://api.openrouteservice.org/directions?api_key=${api_key}&coordinates=${this.state.position.longitude},${this.state.position.latitude}|${this.state.region.longitude},${this.state.region.latitude}&profile=${profile}&geometry_format=polyline`
 
         // get route from point A to point B
-        console.log(url);
+        //console.log(url);
         fetch(url)
             .then((response) => response.json())
             .then((responseData) => {
@@ -310,21 +320,21 @@ export default class Map extends React.Component {
                 markers.push(startMarker);
 
                 // duration is in seconds
-                const duration = (responseData.routes[0].summary.duration)/60;
+                const duration = (responseData.routes[0].summary.duration) / 60;
 
                 // distance is in meters
                 const distance = responseData.routes[0].summary.distance;
 
                 // update the state to refresh the map's display
                 this.setState({
-                    route:{
-                        polyline:coordinates,
-                        duration:duration,
-                        distance:distance,
-                        steps:responseData.routes[0].segments[0].steps
+                    route: {
+                        polyline: coordinates,
+                        duration: duration,
+                        distance: distance,
+                        steps: responseData.routes[0].segments[0].steps
                     },
-                    markers:markers,
-                    waitingRouteDetails:false,
+                    markers: markers,
+                    waitingRouteDetails: false,
                     routeBeingFetched: false
                 })
             });
@@ -332,31 +342,32 @@ export default class Map extends React.Component {
 
     getRouteDetails = () => {
         this.setState({
-            modal:true
+            modal: true
         })
     }
 
     closeModal = () => {
         this.setState({
-            modal:false
+            modal: false
         });
     }
 
     openDialog = () => {
         this.setState({
-            dialogVisible:true
+            dialogVisible: true
         });
     }
 
     closeDialog = () => {
         this.setState({
-            dialogVisible:false
+            dialogVisible: false
         });
     }
 
     render() {
         const { navigate } = this.props.navigation;
         const { params } = this.props.navigation.state;
+        const { saveHistory, weather, poitags } = params;
         return (
             <View style={{ flex: 1 }}>
                 <View style={{ flex: 8 }}>
@@ -367,24 +378,24 @@ export default class Map extends React.Component {
                     >
                         {this.state.markers.map((item, index) => {
                             return <MapView.Marker coordinate={{ latitude: item.latitude, longitude: item.longitude }} title={item.title} key={index} />
-                        })}                        
+                        })}
                         <MapView.Polyline
                             coordinates={this.state.route.polyline}
                             strokeColor="#3D6DCC" // fallback for when `strokeColors` is not supported by the map-provider
                             strokeWidth={4}
-                        />                        
+                        />
                     </MapView>
                 </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding:20, backgroundColor:'#fff' }}>
-                    <Button 
-                        title="Go there" 
-                        onPress= {this.openDialog}
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#fff' }}>
+                    <Button
+                        title="Go there"
+                        onPress={this.openDialog}
                         disabled={this.state.routeBeingFetched}
                         backgroundColor='#3D6DCC'
                     />
-                    <Button 
-                        title="Route details" 
-                        onPress= {this.getRouteDetails}
+                    <Button
+                        title="Route details"
+                        onPress={this.getRouteDetails}
                         disabled={this.state.waitingRouteDetails}
                         backgroundColor='#3D6DCC'
                     />
@@ -407,7 +418,7 @@ export default class Map extends React.Component {
                                             <ListItem
                                                 key={index}
                                                 title={step.instruction}
-                                                subtitle={Math.round(step.distance) + ' meters (Estimated time: ' + Math.round((step.duration)/60) + ' minutes)'}                                        
+                                                subtitle={Math.round(step.distance) + ' meters (Estimated time: ' + Math.round((step.duration) / 60) + ' minutes)'}
                                             />
                                         ))
                                     }
@@ -430,16 +441,16 @@ export default class Map extends React.Component {
                         <DialogButton
                             key='cancel-dialog'
                             text="Cancel"
-                            onPress={ this.closeDialog }
+                            onPress={this.closeDialog}
                             textStyle={{ color: '#3D6DCC' }}
                         />,
                         <DialogButton
                             key='search-route-dialog'
                             text="Search route"
-                            onPress={ () => { this.closeDialog(); this.getRoute(); } }
+                            onPress={() => { this.closeDialog(); this.getRoute(saveHistory, weather, poitags); }}
                             textStyle={{ color: '#3D6DCC' }}
                         />,
-                      ]}
+                    ]}
                 >
                     <DialogContent>
                         <Text>Please choose the type of transport you want to use:</Text>
@@ -448,7 +459,7 @@ export default class Map extends React.Component {
                             initial={routes_profile[0]}
                             buttonColor={'#3D6DCC'}
                             selectedButtonColor={'#3D6DCC'}
-                            onPress={(value) => {this.setState({routeProfile:value})}}
+                            onPress={(value) => { this.setState({ routeProfile: value }) }}
                         />
                     </DialogContent>
                 </Dialog>
@@ -459,7 +470,7 @@ export default class Map extends React.Component {
                     dialogTitle={<DialogTitle title="Please wait" />}
                 >
                     <DialogContent>
-                        <ActivityIndicator size="large" color="#3D6DCC"/>
+                        <ActivityIndicator size="large" color="#3D6DCC" />
                         <Text >Retrieving your location and route to destination...</Text>
                     </DialogContent>
                 </Dialog>

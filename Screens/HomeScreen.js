@@ -88,6 +88,7 @@ export default class Home extends React.Component {
         db.transaction(tx => {
             tx.executeSql('drop table history;');
         });
+        this.createDatabase();
     }
 
     createDatabase = () => {
@@ -191,7 +192,7 @@ export default class Home extends React.Component {
      * HISTORY MANAGEMENT
      */
     getHistoryFromDb = () => {
-        //console.log('History from db');
+        console.log('History from db');
         db.transaction(tx => {
             tx.executeSql(
                 // SQL statement
@@ -205,7 +206,7 @@ export default class Home extends React.Component {
                     //console.log(rows._array)
                     this.setState({
                         history: rows._array
-                    }, function () { /*console.log(this.state.history) */ })
+                    }, function () { console.log(this.state.history) })
                 }
             );
         });
@@ -250,14 +251,6 @@ export default class Home extends React.Component {
         this.saveHistory({ weatherid: 202, date: this.state.weather.date }, 'RESTAURANTS & CAFES', 'public');
     };
 
-    openDialog = () => {
-        this.setState({ dialogVisible: true });
-    }
-
-    closeDialog = () => {
-        this.setState({ dialogVisible: false });
-    }
-
     // method to show toasts
     showToast = (text) => {
         this.refs.toast.show(text);
@@ -269,48 +262,6 @@ export default class Home extends React.Component {
         const weatherIcon = `http://openweathermap.org/img/w/${this.state.weather.icon}.png`
         return (
             <View style={styles.maincontainer}>
-                <Dialog
-                    visible={this.state.dialogVisible}
-                    width={0.9}
-                    onTouchOutside={() => {
-                        this.setState({ dialogVisible: false });
-                    }}
-                    dialogTitle={<DialogTitle title="Add Address" />}
-                    actions={[
-                        <DialogButton
-                            key='cancel-dialog'
-                            text="Cancel"
-                            onPress={this.closeDialog}
-                            textStyle={{ color: '#3D6DCC' }}
-                        />,
-                        <DialogButton
-                            key='add-address-dialog'
-                            text="Add address"
-                            onPress={() => { this.closeDialog(); this.saveAddress(); }}
-                            textStyle={{ color: '#3D6DCC' }}
-                        />,
-                    ]}
-                >
-                    <DialogContent>
-                        <View>
-                            <FormLabel>Address</FormLabel>
-                            <FormInput
-                                onChangeText={(address) => this.setState({ address: { ...this.state.address, address: address } })}
-                                value={this.state.address.address}
-                                placeholder="Type in an address"
-                                inputStyle={{ borderBottomColor: 'darkslateblue', borderBottomWidth: 1 }}
-                                containerStyle={{ width: '100%' }}
-                            />
-                            <FormLabel>Name</FormLabel>
-                            <FormInput
-                                onChangeText={(name) => this.setState({ address: { ...this.state.address, name: name } })}
-                                value={this.state.address.name}
-                                placeholder="Type in a name"
-                                inputStyle={{ borderBottomColor: 'darkslateblue', borderBottomWidth: 1 }}
-                            />
-                        </View>
-                    </DialogContent>
-                </Dialog>
 
                 <View style={styles.weathercontainer}>
                     {typeof this.state.weather.city === 'undefined' ?
@@ -331,11 +282,6 @@ export default class Home extends React.Component {
                             <Image
                                 style={{ width: 60, height: 60 }}
                                 source={{ uri: weatherIcon }}
-                            />
-                            <Button
-                                onPress={this.saveWeather}
-                                title="Save"
-                                backgroundColor='#3D6DCC'
                             />
                         </View>
                         :
@@ -373,7 +319,9 @@ export default class Home extends React.Component {
                                                 }
                                                 onPress={() => navigate('POIDetail', {
                                                     poi: item,
-                                                    navigation: this.props.navigation
+                                                    navigation: this.props.navigation,
+                                                    saveHistory : this.saveHistory,
+                                                    weather : this.state.weather
                                                 })}
                                             />
                                         ))
@@ -385,18 +333,14 @@ export default class Home extends React.Component {
                         null
                     }
 
-
                     <View style={{ flexDirection: "row", justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-                        <Button
-                            title="Save history"
-                            onPress={() => this._saveMockHistory()}
-                            backgroundColor='#3D6DCC'
-                        />
+                        {/*
                         <Button
                             title="Reset Database"
                             onPress={() => this.resetDatabase()}
                             backgroundColor='#3D6DCC'
                         />
+                        */}
                         <Button
                             title="Pedometer"
                             onPress={() => navigate('Pedometer')}
