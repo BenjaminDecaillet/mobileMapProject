@@ -5,7 +5,7 @@ import { Button, Text, List, ListItem, Icon, FormLabel, FormInput } from 'react-
 import Dialog, { DialogContent, DialogTitle, DialogButton } from 'react-native-popup-dialog';
 
 import { Location, Permissions, SQLite } from 'expo';
-
+import { brain } from '../ML/Brain';
 import API_KEYS from '../config/api_keys';
 
 const db = SQLite.openDatabase('tourismML.db');
@@ -63,6 +63,7 @@ export default class Home extends React.Component {
         this.updateAddressesList();
         this.getWeatherFromDb();
         this.getLocation();
+        brain();
     }
 
     resetDatabase = () => {

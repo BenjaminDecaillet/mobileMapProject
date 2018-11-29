@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@mapbox/polyline": "^1.0.0",
+    "brain.js": "^1.5.2",
     "expo": "^31.0.5",
     "moment": "^2.22.2",
     "numeral": "^2.0.6",

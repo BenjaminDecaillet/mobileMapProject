@@ -1,8 +1,6 @@
 import React, { Component } from 'react';
-import { StyleSheet, View, Image, ActivityIndicator, ScrollView, TouchableOpacity, Linking } from 'react-native';
-import Toast from 'react-native-easy-toast';
-import { Button, Text, List, ListItem, Icon, FormLabel, FormInput } from 'react-native-elements';
-import Dialog, { DialogContent, DialogTitle, DialogButton } from 'react-native-popup-dialog';
+import { StyleSheet, View, ScrollView, Linking } from 'react-native';
+import { Button, Text, Icon } from 'react-native-elements';
 import moment from 'moment';
 import Carousel from '../Components/Carousel';
 
@@ -73,15 +71,20 @@ class POIDetail extends Component {
                             <Text style={styles.title_text}>
                                 {poi.name.en}
                             </Text>
-                            <Icon
-                                reverse
-                                reverseColor='#FFF'
-                                name='web'
-                                color='#4286f4'
-                                type='material-community'
-                                size={20}
-                                onPress={() => this.handleClick(poi.info_url)}
-                            />
+                            {typeof poi.info_url !== '' ?
+                                <Icon
+                                    reverse
+                                    reverseColor='#FFF'
+                                    name='web'
+                                    color='#4286f4'
+                                    type='material-community'
+                                    size={20}
+                                    onPress={() => this.handleClick(poi.info_url)}
+                                />
+                                :
+                                null
+                            }
+
                         </View>
                         <View style={{ flex: 2 }}>
                             <Text style={styles.description_text}>{poi.description.body}</Text>
