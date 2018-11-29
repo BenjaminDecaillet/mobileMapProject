@@ -1,0 +1,10 @@
+
+export const OUTSIDE_VENUES = ['NATURE & SPORTS','SAUNA & WELLNESS','SIGHTS & ATTRACTIONS'];
+export const INSIDE_VENUES = ['RESTAURANTS & CAFES','BARS & NIGHTLIFE','SHOPPING','BANQUET VENUES','MUSEUMS & GALLERIES'];
+export const ALWAYS_OK = ['VENUES'];
+export const NEVER_OK = ['SERVICES','WORK & STUDY','ACCOMMODATION','MEETING PLACES'];
+export const WEATHER_DEMARCATION = 800;
+export const PROFILE_INSIDE = 'inside';
+export const PROFILE_OUTSIDE = 'outside';
+export const PROFILE_BOTH = 'both';
+

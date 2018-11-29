@@ -34,22 +34,46 @@ class POIDetail extends Component {
                 <View>
                     <Text style={styles.schedule_title}>Opening hours: </Text>
                     {hours.map((day, index) => (
-                        <Text key={index} style={styles.schedule_text}>
-                            {this.state.weekDays[day.weekday_id]}:{' '}
-                            {moment(day.opens, "HH:mm:ss").format('HH:mm')} / {moment(day.closes, "HH:mm:ss").format('HH:mm')}
-                        </Text>
-                    ))}
+                        this._dayOpeningsInformation(day, index)
+                    ))
+                    }
                     <Text style={styles.schedule_text}>{exception}</Text>
-
-                </View>
+                </View >
             )
         }
     }
 
+    _dayOpeningsInformation = (day, index) => {
+        if (day.open24h) {
+            return (
+                <Text key={index} style={styles.schedule_text}>
+                    {this.state.weekDays[day.weekday_id]}:{' Open 24/24'}
+                </Text>
+            )
+        }
+        else {
+            if (day.opens === null || day.closes === null) {
+                return (
+                    <Text key={index} style={styles.schedule_text}>
+                        {this.state.weekDays[day.weekday_id]}:{' No information'}
+                    </Text>
+                )
+            }
+            else {
+                console.log(day.opens)
+                return (
+                    <Text key={index} style={styles.schedule_text}>
+                        {this.state.weekDays[day.weekday_id]}:{' '}
+                        {moment(day.opens, "HH:mm:ss").format('HH:mm')} / {moment(day.closes, "HH:mm:ss").format('HH:mm')}
+                    </Text>
+                )
+            }
+        }
+
+    }
+
     _displayPoi() {
         const { poi, navigation } = this.props.navigation.state.params;
-        console.log(poi.opening_hours.hours);
-        console.log(poi.opening_hours.hours === null);
         if (poi != undefined) {
             let street = '';
             let postalCode = '';
@@ -103,17 +127,17 @@ class POIDetail extends Component {
                             null
                         }
                         {this._displayTimeTables(poi.opening_hours.hours, poi.opening_hours.openinghours_exception)}
+                        <Button
+                            title="Show on map"
+                            onPress={() => navigation.navigate('Map', {
+                                address: address,
+                                title: poi.name.en,
+                                lat: parseFloat(poi.location.lat),
+                                long: parseFloat(poi.location.lon)
+                            })}
+                            backgroundColor='#3D6DCC'
+                        />
                     </ScrollView>
-                    <Button
-                        title="Show on map"
-                        onPress={() => navigation.navigate('Map', {
-                            address: address,
-                            title: poi.name.en,
-                            lat: parseFloat(poi.location.lat),
-                            long: parseFloat(poi.location.lon)
-                        })}
-                        backgroundColor='#3D6DCC'
-                    />
                 </View>
             )
         }

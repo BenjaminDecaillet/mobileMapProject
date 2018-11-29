@@ -24,7 +24,6 @@ class Carousel extends Component {
                 </View>
             );
         }
-        console.log('Please provide images');
         return null;
     }
 }

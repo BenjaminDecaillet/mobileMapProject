@@ -3,31 +3,48 @@ import { StyleSheet, View, Image, ActivityIndicator, ScrollView } from 'react-na
 import Toast from 'react-native-easy-toast';
 import { Button, Text, List, ListItem, Icon, FormLabel, FormInput } from 'react-native-elements';
 import Dialog, { DialogContent, DialogTitle, DialogButton } from 'react-native-popup-dialog';
-
+import { definingProfile, filteringPoi } from '../ML/FilteringList';
 import { Location, Permissions, SQLite } from 'expo';
-import { brain } from '../ML/Brain';
 import API_KEYS from '../config/api_keys';
 
 const db = SQLite.openDatabase('tourismML.db');
 
-
-const detailBaseUrl = `http://open-api.myhelsinki.fi/v1/place/`
+const ObjectsExample = [
+    {
+        "date": "Thu, 29 Nov 2018 11:23:54 GMT",
+        "id": 1,
+        "poitag": "NATURE & SPORTS",
+        "transporttype": "public",
+        "weatherid": 803,
+    },
+    {
+        "date": "Thu, 29 Nov 2018 11:23:54 GMT",
+        "id": 2,
+        "poitag": "SIGHTS & ATTRACTIONS",
+        "transporttype": "public",
+        "weatherid": 803,
+    },
+    {
+        "date": "Thu, 29 Nov 2018 11:23:54 GMT",
+        "id": 3,
+        "poitag": "MUSEUMS & GALLERIES",
+        "transporttype": "public",
+        "weatherid": 603,
+    },
+    {
+        "date": "Thu, 29 Nov 2018 11:23:54 GMT",
+        "id": 4,
+        "poitag": "SHOPPING",
+        "transporttype": "public",
+        "weatherid": 603,
+    }
+]
 
 export default class Home extends React.Component {
     static navigationOptions = {
         title: 'Home',
     };
-    /**
-     * TAGS Intersting for project
-     * NATURE & SPORTS
-     * Bowling
-     * Biking
-     * Monument
-     * Church
-     * ContemporaryArt
-     * Museum
-     * Restaurant
-     */
+
     constructor(props) {
         super(props);
         this.state = {
@@ -38,11 +55,9 @@ export default class Home extends React.Component {
                 longitude: 0
             },
             searchCriterias: {
-                tagsSearch: '',
-                tagsFilter: '',
                 lat: '',
                 long: '',
-                range: '0.2',
+                range: '0.5',
                 language: 'en',
                 pageLimit: '10'
             },
@@ -50,8 +65,11 @@ export default class Home extends React.Component {
             addresses: [],
             poi: [],
             numberOfPoi: -1,
-            poiTags: [],
+            history: [],
             weather: {},
+            profile: {},
+            poiTagsFilter: '',
+            poiTagsSearch: '',
             modalVisible: false,
             dialogVisible: false
         };
@@ -60,24 +78,21 @@ export default class Home extends React.Component {
     componentDidMount() {
         //this.resetDatabase();
         this.createDatabase();
-        this.updateAddressesList();
-        this.getWeatherFromDb();
+        this.getHistoryFromDb();
         this.getLocation();
-        brain();
+
     }
 
     resetDatabase = () => {
-        console.log('delete');
+        console.log('delete database');
         db.transaction(tx => {
-            tx.executeSql('drop table address;');
-            tx.executeSql('drop table weather;');
+            tx.executeSql('drop table history;');
         });
     }
 
     createDatabase = () => {
         db.transaction(tx => {
-            tx.executeSql('create table if not exists address (id integer primary key not null, address text not null, name text not null, latitude text not null, longitude text not null);');
-            tx.executeSql('create table if not exists weather (id integer primary key not null, latitude text not null, longitude text not null, date text not null, city ext not null, weather text not null, temperature text not null, icon text not null);');
+            tx.executeSql('create table if not exists history (id integer primary key not null, weatherid integer not null, poitag text not null, transporttype text not null, date text not null);');
         });
     }
 
@@ -94,17 +109,10 @@ export default class Home extends React.Component {
                 location: {
                     long: this.state.location.coords.longitude,
                     lat: this.state.location.coords.latitude
-                }
+                },
+                profile: definingProfile(ObjectsExample)
             });
-            this.getWeather(this.state.location.lat.toFixed(2), this.state.location.long.toFixed(2));
-            this._getPoI(
-                this.state.location.long,
-                this.state.location.lat,
-                this.state.searchCriterias.range,
-                this.state.searchCriterias.language,
-                this.state.searchCriterias.pageLimit,
-                this.state.searchCriterias.tagsFilter,
-                this.state.searchCriterias.tagsSearch);
+            this.getWeather(this.state.location.lat.toFixed(2), this.state.location.long.toFixed(2), true)
         }
 
     };
@@ -115,7 +123,8 @@ export default class Home extends React.Component {
             .then((response) => response.json())
             .then((responseData) => {
                 this.setState({
-                    poi: [...this.state.poi, responseData]
+                    poi: [...this.state.poi, responseData],
+                    numberOfPoi: Number(this.state.numberOfPoi) + 1
                 })
             });
     }
@@ -127,11 +136,12 @@ export default class Home extends React.Component {
         let search = '';
         let filter = '';
         if (tagsSearch != '') {
-            search = `tags_serach=${tagsSearch}&`;
+            search = `tags_search=${encodeURIComponent(tagsSearch)}&`;
         }
         if (tagsFilter != '') {
             filter = `tags_filter=${tagsFilter}&`;
         }
+
         const ListUrl = `http://open-api.myhelsinki.fi/v1/places/?${search}${filter}distance_filter=${lat},${long},${range}&language_filter=${language}&limit=${pageLimit}`;
 
         fetch(ListUrl)
@@ -139,11 +149,7 @@ export default class Home extends React.Component {
             .then((responseData) => {
                 this.setState({
                     poi: responseData.data,
-                    numberOfPoi: responseData.meta.count,
-                    poiTags: responseData.tags
-                }, function () {
-                    this._getPoiByID('3229');
-                    this._getPoiByID('3299')
+                    numberOfPoi: responseData.meta.count
                 })
             });
 
@@ -151,7 +157,7 @@ export default class Home extends React.Component {
     }
 
 
-    getWeather(lat, long) {
+    getWeather(lat, long, poiSearch = false) {
         const APIKEY = 'c76ad520e3b298ae1650c9d7d259ead7'
         fetch(`http://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${long}&units=metric&APPID=${APIKEY}`)
             .then((response) => response.json())
@@ -162,128 +168,64 @@ export default class Home extends React.Component {
                         city: responseData.name,
                         temperature: responseData.main.temp,
                         weather: responseData.weather[0].description,
+                        weatherid: responseData.weather[0].id,
                         icon: responseData.weather[0].icon
+                    },
+                    poiTagsSearch: filteringPoi({ weatherid: responseData.weather[0].id }, this.state.profile)
+                }, function () {
+                    if (poiSearch) {
+                        this._getPoI(
+                            this.state.location.long,
+                            this.state.location.lat,
+                            this.state.searchCriterias.range,
+                            this.state.searchCriterias.language,
+                            this.state.searchCriterias.pageLimit,
+                            this.state.poiTagsFilter,
+                            this.state.poiTagsSearch);
                     }
                 })
             });
     }
 
-    getWeatherFromDb = () => {
-        console.log('weather from db');
+    /**
+     * HISTORY MANAGEMENT
+     */
+    getHistoryFromDb = () => {
+        //console.log('History from db');
         db.transaction(tx => {
             tx.executeSql(
                 // SQL statement
-                'SELECT * FROM Weather',
+                'SELECT * FROM history',
 
                 // arguments for statement
                 [],
 
                 // success function
                 (_, { rows }) => {
-                    console.log(rows._array)
-                }
-            );
-        });
-    }
-
-    //
-    // ADDRESSES MANAGEMENT
-    //
-    saveAddress = async () => {
-        if (this.state.address.address && this.state.address.name) {
-            // get latitude and longitude for address
-            await this.forwardGeoCode();
-
-            // save the address in the local db
-            db.transaction(tx => {
-                tx.executeSql(
-                    // statement
-                    'insert into Address (address, name, latitude, longitude) values (?, ?, ?, ?)',
-
-                    // arguments
-                    [this.state.address.address, this.state.address.name, this.state.address.latitude, this.state.address.longitude],
-
-                    // sucess function
-                    () => {
-                        this.showToast('The address has been saved.');
-                        this.updateAddressesList();
-                    },
-
-                    // error function
-                    this.showToast('Impossible to save data in the database.')
-                );
-            });
-        }
-        else {
-            this.showToast('Address and/or name is missing.');
-        }
-    };
-
-    forwardGeoCode = async () => {
-        console.log('geocode');
-        // preparing request
-        const api_key = API_KEYS.OPEN_ROUTE_SERVICE;
-        const url = `https://api.openrouteservice.org/geocode/search?api_key=${api_key}&text=${this.state.address.address}`
-
-        // request
-        await fetch(url)
-            .then((response) => response.json())
-            .then((responseData) => {
-                console.log(responseData);
-
-                const address = this.state.address;
-                address.latitude = responseData.features[0].geometry.coordinates[1];
-                address.longitude = responseData.features[0].geometry.coordinates[0];
-
-                this.setState({ address });
-            });
-    }
-
-    updateAddressesList = () => {
-        // update the addresses list in state and reset the state of the text inputs
-        db.transaction(tx => {
-            tx.executeSql(
-                // SQL statement
-                'SELECT * FROM Address',
-
-                // arguments for statement
-                [],
-
-                // success function
-                (_, { rows }) => {
+                    //console.log(rows._array)
                     this.setState({
-                        addresses: rows._array,
-                        /*address:{
-                            address: '',
-                            name: '',
-                            latitude: 0,
-                            longitude: 0
-                        },*/
-                        modalVisible: false
-                    });
+                        history: rows._array
+                    }, function () { /*console.log(this.state.history) */ })
                 }
             );
         });
     }
 
-    //
-    // WEATHER MANAGEMENT
-    //
-    saveWeather = () => {
+    saveHistory = (weather, poitag, transport) => {
         if (this.state.location != '') {
             // save the address in the local db
             db.transaction(tx => {
                 tx.executeSql(
                     // statement
-                    'insert into Weather (latitude, longitude, date, city, weather, temperature, icon) values (?, ?, ?, ?, ?, ?, ?)',
+                    'insert into history (weatherid, poitag , transporttype , date ) values (?, ?, ?, ?)',
 
                     // arguments
-                    [this.state.location.lat, this.state.location.long, this.state.weather.date, this.state.weather.city, this.state.weather.weather, this.state.weather.temperature, this.state.weather.icon],
+                    [weather.weatherid, poitag, transport, weather.date],
 
                     // sucess function
                     () => {
-                        this.showToast('Weather saved.');
-                        this.getWeatherFromDb();
+                        this.showToast('History item saved.');
+                        this.getHistoryFromDb();
                     },
 
                     // error function
@@ -299,6 +241,15 @@ export default class Home extends React.Component {
         }
     };
 
+    _saveMockHistory = () => {
+        this.saveHistory(this.state.weather, 'NATURE & SPORTS', 'public');
+        this.saveHistory(this.state.weather, 'SIGHTS & ATTRACTIONS', 'public');
+        this.saveHistory(this.state.weather, 'SAUNA & WELLNESS', 'public');
+        this.saveHistory({ weatherid: 602, date: this.state.weather.date }, 'MUSEUMS & GALLERIES', 'public');
+        this.saveHistory({ weatherid: 703, date: this.state.weather.date }, 'SHOPPING', 'public');
+        this.saveHistory({ weatherid: 202, date: this.state.weather.date }, 'RESTAURANTS & CAFES', 'public');
+    };
+
     openDialog = () => {
         this.setState({ dialogVisible: true });
     }
@@ -312,6 +263,7 @@ export default class Home extends React.Component {
         this.refs.toast.show(text);
     }
 
+
     render() {
         const { navigate } = this.props.navigation;
         const weatherIcon = `http://openweathermap.org/img/w/${this.state.weather.icon}.png`
@@ -323,7 +275,7 @@ export default class Home extends React.Component {
                     onTouchOutside={() => {
                         this.setState({ dialogVisible: false });
                     }}
-                    dialogTitle={<DialogTitle title="Route details" />}
+                    dialogTitle={<DialogTitle title="Add Address" />}
                     actions={[
                         <DialogButton
                             key='cancel-dialog'
@@ -340,7 +292,6 @@ export default class Home extends React.Component {
                     ]}
                 >
                     <DialogContent>
-                        <Text>Please choose the type of transport you want to use:</Text>
                         <View>
                             <FormLabel>Address</FormLabel>
                             <FormInput
@@ -393,36 +344,6 @@ export default class Home extends React.Component {
                 </View>
                 <View style={styles.listcontainer}>
 
-                    <Text>
-                        {/*
-                    <ScrollView>
-                        <List>
-                            {
-                                this.state.addresses.map((item) => (
-                                    <ListItem
-                                        key={item.id}
-                                        title={item.name}
-                                        subtitle={item.address}
-                                        rightIcon={
-                                            <Icon
-                                                name={'chevron-right'}
-                                                size={20}
-                                            />
-                                        }
-                                        onPress={() => navigate('Map', {
-                                            address: item.address,
-                                            title: item.name,
-                                            lat: parseFloat(item.latitude),
-                                            long: parseFloat(item.longitude)
-                                        })}
-                                    />
-                                ))
-                            }
-                        </List>
-                    </ScrollView>
-                    */}
-                    </Text>
-
                     {typeof this.state.poi[1] === 'undefined' ?
                         <View>
                             <ActivityIndicator size="large" color="#0000ff" />
@@ -467,8 +388,13 @@ export default class Home extends React.Component {
 
                     <View style={{ flexDirection: "row", justifyContent: 'center', alignItems: 'center', padding: 20 }}>
                         <Button
-                            title="Add an address"
-                            onPress={() => this.setState({ dialogVisible: true })}
+                            title="Save history"
+                            onPress={() => this._saveMockHistory()}
+                            backgroundColor='#3D6DCC'
+                        />
+                        <Button
+                            title="Reset Database"
+                            onPress={() => this.resetDatabase()}
                             backgroundColor='#3D6DCC'
                         />
                         <Button
