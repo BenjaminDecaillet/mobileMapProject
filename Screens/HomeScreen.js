@@ -57,9 +57,9 @@ export default class Home extends React.Component {
             searchCriterias: {
                 lat: '',
                 long: '',
-                range: '0.5',
-                language: 'en',
-                pageLimit: '10'
+                range: '1', //Range by default for searching locations near the user
+                language: 'en', //Language of the results to be loaded
+                pageLimit: '10' // Size of the page that the API Return
             },
             location: {},
             addresses: [],
@@ -118,6 +118,7 @@ export default class Home extends React.Component {
 
     };
 
+    //Get a point of interest by it's ID
     _getPoiByID = (id) => {
         const detailUrl = `http://open-api.myhelsinki.fi/v1/place/${id}?&language_filter=en`
         fetch(detailUrl)
@@ -130,12 +131,15 @@ export default class Home extends React.Component {
             });
     }
 
+    //Research Point of Interest from the API with inputted parameters
     _getPoI = (long, lat, range, language, pageLimit, tagsFilter, tagsSearch) => {
         this.setState({
             poi: []
         })
+        //Tests if some filters or Search parameters are inputted and if true input them in the api request
         let search = '';
         let filter = '';
+        //Filter the api based on the user profile with URI encodage for components
         if (tagsSearch != '') {
             search = `tags_search=${encodeURIComponent(tagsSearch)}&`;
         }
@@ -144,7 +148,8 @@ export default class Home extends React.Component {
         }
 
         const ListUrl = `http://open-api.myhelsinki.fi/v1/places/?${search}${filter}distance_filter=${lat},${long},${range}&language_filter=${language}&limit=${pageLimit}`;
-
+        
+        // Fetch tue POI and then set the list in the state and the number of POI
         fetch(ListUrl)
             .then((response) => response.json())
             .then((responseData) => {
@@ -289,8 +294,8 @@ export default class Home extends React.Component {
                     }
                 </View>
                 <View style={styles.listcontainer}>
-
-                    {typeof this.state.poi[1] === 'undefined' ?
+                    
+                    {this.state.numberOfPoi === -1 ?
                         <View>
                             <ActivityIndicator size="large" color="#0000ff" />
                             <Text>Loading points of interest near your position...</Text>
@@ -298,7 +303,7 @@ export default class Home extends React.Component {
                         :
                         null
                     }
-                    {typeof this.state.poi[1] !== 'undefined' ?
+                    {this.state.numberOfPoi !== -1 ?
                         <View>
                             <View style={{ flexDirection: 'row', padding: 10 }}>
                                 <Text h4>Number of POI near you: {this.state.numberOfPoi}</Text>

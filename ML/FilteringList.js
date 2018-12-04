@@ -1,6 +1,9 @@
 import { WEATHER_DEMARCATION, OUTSIDE_VENUES, INSIDE_VENUES, ALWAYS_OK, PROFILE_INSIDE, PROFILE_OUTSIDE, PROFILE_BOTH } from './FilterTypes';
 
+//Based on current weather and profile inputted from user ({good weather = {Ins / Outs / Both}} , {bad weather = { Ins / Outs / Both }})
+//return the needed filtering list for the api to have venues that only conform with our user profile
 export function filteringPoi(weather, profile) {
+    //Based on the inputed weather know if it is Good / Bad Weather from the WEATHER_DEMARCATION LIMIT
     //Bad Weather
     if (weather.weatherid < WEATHER_DEMARCATION) {
         return _ProfileInsideOutside(profile.badWeather)
@@ -11,16 +14,24 @@ export function filteringPoi(weather, profile) {
     }
 };
 
-
+//Function to define the profile of the user based on it's history, two main filter points are Good or Bad weather currently
 export function definingProfile(historyList) {
+    //Define the variables that will enable us to know if during Good / Bad Weather the user is inside or Outside
     let badWeather = [0, 0];
     let goodWeather = [0, 0];
     let temp, profile = {};
+    //Set the list of the Major tags returned from the api to filter the results
     const venues = [...OUTSIDE_VENUES, ...INSIDE_VENUES, ...ALWAYS_OK]
 
+    //Run through the history of the user inputted each history item has a weather id and a tag
     historyList.map(function (item) {
+        //Find in the list of Major tag the history item tag if existant and return it's index
         const tagIndex = venues.findIndex(venues => venues === item.poitag)
+        //Based on the index of the tag return an element [ x {outside} , x {inside}] depends on wether the venues was inside or outside
         temp = _InsideOutside(tagIndex);
+
+        //Based on the History item weatherid know if it is Good / Bad Weather from the WEATHER_DEMARCATION LIMIT
+        //Increment the variables of the Good / Bad weather with the element return from the previous function _InsideOutside
         //Bad weather
         if (item.weatherid < WEATHER_DEMARCATION) {
             badWeather[0] = badWeather[0] + temp[0];
@@ -55,6 +66,7 @@ export function definingProfile(historyList) {
     return profile;
 };
 
+//Based on the length of each Array of venues know if an element is inside / outside / Always OK / not taken into account
 function _InsideOutside(id) {
     if (id < 0) {
         return [0, 0];
@@ -73,6 +85,7 @@ function _InsideOutside(id) {
     }
 };
 
+//Actual function that return the search list elements based on the profile type (Inside / Outside / Both = 'no filter' )
 function _ProfileInsideOutside(type) {
     switch (type) {
         case PROFILE_INSIDE:
@@ -84,6 +97,7 @@ function _ProfileInsideOutside(type) {
     }
 }
 
+//Convert the array of venues to a String usable for input into the api request as parameter
 function arrayToString(array) {
     let string = '';
     array.map(function (item) {

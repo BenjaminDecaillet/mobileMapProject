@@ -60,7 +60,6 @@ class POIDetail extends Component {
                 )
             }
             else {
-                console.log(day.opens)
                 return (
                     <Text key={index} style={styles.schedule_text}>
                         {this.state.weekDays[day.weekday_id]}:{' '}
